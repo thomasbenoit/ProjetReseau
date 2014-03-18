@@ -1,4 +1,4 @@
-//#define _GNU_SOURCE    
+#define _GNU_SOURCE    
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -8,8 +8,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <netdb.h>
-#include <iostream>
-using namespace std;
+
 
 int initSocketClient(char *host, short port){
   int sock, val;
@@ -45,35 +44,27 @@ void connection(int sock){
 
 
 void getReponse(int sock){
-  bool quit=false;
-  char reponse[1000];
+  char reponse[100];
   int i;
-  while(!quit){
-    i=read(sock, reponse, 1);
-    if(i>0){
-      if(!strcmp(reponse,"C")){//Demande de connection C PORT IP
-	cout<<"demande de connection"<<endl;
-	//Connexion Spy controleur.
-      }
-      else if(!strcmp(reponse,"S")){//STOP
-	cout<<"Spy Stop"<<endl;
-	quit=true;
-      }
-      else{
-	cout<<"Erreur: "<<reponse[0]<<endl;
-      }
-    }
-  }
+  i=read(sock, reponse, 99);
+  reponse[i]=0;
+  printf("Reponse : %s\n", reponse);
 }
 
-
+/*void printEcran(int sock){
+  int time=60;
+  system("import -window root */ 
 int main(int args, char *arg[]){
+
   //initialisation du serveur
   int sock=initSocketClient(arg[1], atoi(arg[2]));
   if (sock==-1) return -1; //en cas d'echec de l'initialisation
-  connection(sock);  
-  getReponse(sock);  
-  close(sock);
+  connection(sock); getReponse(sock);
+  
+
+
+
+ close(sock);
   return 0;
- }
+}
   

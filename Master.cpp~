@@ -1,0 +1,97 @@
+//#define _GNU_SOURCE    
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h> 
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <netdb.h>
+#include <pthread.h>
+#include <signal.h>
+#include <time.h>
+#include <iostream>
+#include <map>
+
+map<int,int> listespy;//<numsalle,numpc>
+
+
+int initSocketServeur(short port){
+  int sock, val;
+  struct sockaddr_in stad; //ma structure d'adresse pour le serveur
+  sock=socket(AF_INET, SOCK_STREAM,0);
+  if (sock==-1) {
+    printf("Erreur d'utilisation de la fonction socket\n");
+    return -1; // fin de fonction main
+  }
+
+  stad.sin_family=AF_INET;
+  stad.sin_port=htons(port);
+  stad.sin_addr.s_addr=INADDR_ANY;
+  val=bind(sock, (struct sockaddr *) &stad, sizeof(struct sockaddr_in));
+  if (val==-1) {
+    printf("Erreur d'utilisation de la fonction bind\n");
+    return -1; // fin de fonction main
+  }
+  val=listen(sock, 5);
+  if (val==-1) {
+    printf("Erreur d'utilisation de la fonction listen \n");
+    return -1; // fin de fonction main
+  }
+  return sock;
+}
+
+void *gereSpy(void *arg){ 
+  //Gere les deconnexion
+  //Gere les demande de co sur le controleur
+}
+
+
+void connectSpy (){ 
+  // mymap.insert ( std::pair<char,int>('a',100) );
+}
+
+
+int lireType(int client){
+    char c='a'; //c initialisé a n'importe quoi sauf \n
+    int i=0, n;
+    n=read(client, &c, 1);
+    if (n==0) return -1;
+    else return atoi(c);
+}
+
+
+int main(int args, char *arg[]){
+  //initialisation du serveur
+  int sock,type;
+  pthread_t T1;
+  pthread_mutex_t verr;
+  sock=initSocketServeur(atoi(arg[1]));
+  if (sock==-1) return -1; //en cas d'echec de l'initialisation
+
+  //variables pour accepter une connexion
+  struct sockaddr_in stclient; //ma structure d'adresse pour le client
+  socklen_t taille=sizeof(struct sockaddr_in);
+  int client; //descripteur pour le client  
+
+  //initialisatio du verrou
+  pthread_mutex_init(&verr, NULL);
+  pthread_create(&tLogin, NULL, gereSpy, NULL);
+ 
+  //attente de clients puis gestion des requêtes
+  while (1) {
+    type=-1;
+    client=accept(sock, (struct sockaddr *) &stclient, &taille);
+    printf("Un client vient de se connecter : \n");//, h->h_name);
+    type=liretype(client);
+    switch(type){
+    case 1 : connectSpy(); break;
+    case 2 : cout<<"futur Controleur"<<endl; break;
+    case 3 : cout<<"futur Observateur"<<endl; break;
+    case -1: cout<<"Erreur"<<endl; break;
+    }
+  }
+  return 0;
+}
+  

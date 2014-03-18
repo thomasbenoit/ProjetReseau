@@ -17,6 +17,8 @@
 #include <iostream>
 #include <map>
 #include <string.h>
+#include <cstdlib>
+#include <sstream>
 
 using namespace std;
 
@@ -26,8 +28,9 @@ struct pc{
 };
 
 
-multimap<int,pc> listespy;//<numsalle,pc>
-map<int,pc> listecontrolleur;//<numsalle,pc>
+
+multimap<string,pc> listespy;//<numsalle,pc>
+map<string,pc> listecontroleur;//<numsalle,pc>
 
 
 
@@ -104,8 +107,7 @@ void *gereSpy(void *arg){
 	  if (n==0) {//Deco Client
 	    close(it->second.sock);
 	    listespy.erase(it);
-	    cout<<"Client Sup !"<<endl;
-	        
+	    cout<<"Client Sup !"<<endl;	        
 	  }
 	}
       }
@@ -114,15 +116,77 @@ void *gereSpy(void *arg){
   }
 }
 
+void *gereCon(void *arg){ 
+  //Gere les deconnexion
+  //Gere les demande de co sur le controleur
 
+  int i, n, fdMax;
+  char buffer[3];
+  fd_set fd;
+  string s="";
+  struct timeval tv;
+  tv.tv_sec=1;
+  tv.tv_usec = 0;
+  while(1){
+    FD_ZERO(&fd);
+    for (auto it=listecontroleur.begin();it!=listecontroleur.end();it++){
+      FD_SET(it->second.sock, &fd);
+    }
+    fdMax=0;
 
-void connectSpy (int salle,int s,string nomh){
+    for (auto it=listecontroleur.begin();it!=listecontroleur.end();it++) 
+      if (it->second.sock>fdMax) fdMax=it->second.sock;
+    fdMax++;
+
+    //attente qu'un client envoie un message ou se déconnecte
+    
+    n=select(fdMax, &fd, NULL, NULL, &tv);
+
+    //Changement
+    if (n>0){
+      for (auto it=listecontroleur.begin();it!=listecontroleur.end();it++) {
+	if (FD_ISSET(it->second.sock, &fd)) {
+	  n=lireMessage(it->second.sock, buffer, 3);
+	  if (n==0) {//Deco Client
+	    close(it->second.sock);
+	    listecontroleur.erase(it);
+	    cout<<"Controleur Sup !"<<endl;	        
+	  }
+	  else {
+	    if(!strcmp(buffer,"GET")){
+	      cout<<"Envoie demande de connexion"<<endl;
+	      s="C ";
+	      ostringstream oss;
+	      oss << 8080;
+	      s+=oss.str();
+	      s+=" ";
+	      s+=it->second.nomhote;
+	      //On choisis la salle de la localisation ! ERREUR Il faut demander la salle à l'usr
+	      auto it2=listespy.find(it->first);//Il faudra le faire pour tous 
+	      write(it2->second.sock,s.c_str(),s.size());
+	      cout<<"Fin de demande"<<endl;
+	    }
+	  }
+	}
+      }
+    }
+
+  }
+}
+
+void connectSpy (string salle,int s,string nomh){
   struct pc tmp;
   tmp.nomhote=nomh;
   tmp.sock=s;
-  listespy.insert(pair<int,pc>(s,tmp));
+  listespy.insert(pair<string,pc>(salle,tmp));
 }
 
+void connectCon (string salle,int s,string nomh){
+  struct pc tmp;
+  tmp.nomhote=nomh;
+  tmp.sock=s;
+  listecontroleur.insert(pair<string,pc>(salle,tmp));
+}
 
 int lireType(int client){
   char *c=new char('a'); //c initialisé a n'importe quoi sauf \n
@@ -133,11 +197,15 @@ int lireType(int client){
 }
 
 
+
 int main(int args, char *arg[]){
   //initialisation du serveur
-  int sock,type;
-  pthread_t T1;
+  int sock,type,port;
+  pthread_t T1,T2;
   pthread_mutex_t verr;
+  string tmp;
+  char tmpc[2];
+  port=atoi(arg[1]);
   sock=initSocketServeur(atoi(arg[1]));
   if (sock==-1) return -1; //en cas d'echec de l'initialisation
 
@@ -149,16 +217,19 @@ int main(int args, char *arg[]){
   //initialisatio du verrou
   pthread_mutex_init(&verr, NULL);
   pthread_create(&T1, NULL, gereSpy, NULL);
- 
+  pthread_create(&T2, NULL, gereCon, NULL);
   //attente de clients puis gestion des requêtes
   while (1) {
     type=-1;
     client=accept(sock, (struct sockaddr *) &stclient, &taille);
-    printf("Un client vient de se connecter : \n");//, h->h_name);
+    struct hostent *h;
+    h=gethostbyaddr((void *)&stclient.sin_addr.s_addr, 4, AF_INET);
+    tmp=string(h->h_name);
+    cout<<"Un client vient de se connecter : "<<tmp<<" "<<tmp.substr(0,6)<<endl;
     type=lireType(client);
     switch(type){
-    case 1 : connectSpy(12,client,"info27-13"); cout<<"Spy"<<endl; break;
-    case 2 : cout<<"futur Controleur"<<endl; break;
+    case 1 : connectSpy(tmp.substr(0,6),client,tmp); cout<<"Spy"<<endl; break;
+    case 2 : connectCon(tmp.substr(0,6),client,tmp); cout<<"Controleur"<<endl; break;
     case 3 : cout<<"futur Observateur"<<endl; break;
     case -1: cout<<"Erreur"<<endl; break;
     }

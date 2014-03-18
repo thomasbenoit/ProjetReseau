@@ -1,0 +1,157 @@
+
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h> 
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <netdb.h>
+#include <iostream>
+
+using namespace std;
+
+map<int,sock> listespy;//<numpc,socket>
+
+
+/*
+ * Coté Client
+ */
+
+
+int initSocketClient(char *host, short port){
+  int sock, val;
+  struct sockaddr_in serv; //ma structure d'adresse pour le serveur
+  //initialisation socket
+  sock=socket(AF_INET, SOCK_STREAM,0);
+  if (sock==-1) {
+    printf("Erreur d'utilisation de la fonction socket\n");
+    return -1; // fin de fonction main
+  }
+
+  //initialisation structure d'adresse
+  struct hostent *info;
+  info=gethostbyname(host);
+  serv.sin_family=AF_INET;
+  serv.sin_port=htons(port);
+  serv.sin_addr.s_addr=*((uint32_t *)info->h_addr);
+
+  //tentative de connexion
+  val=connect(sock, (struct sockaddr *) &serv, sizeof(struct sockaddr_in));
+  if (val==-1) {
+    printf("Erreur d'utilisation de la fonction connect\n");
+    return -1; // fin de fonction main
+  }
+
+  //le socket est retourné en cas de succès
+  return sock;
+}
+
+void connection(int sock){
+  write(sock, "2",1);
+}
+
+
+void getReponse(int sock){
+  char reponse[100];
+  int i;
+  i=read(sock, reponse, 99);
+  reponse[i]=0;
+  printf("Reponse : %s\n", reponse);
+}
+
+
+
+
+/*
+ * Coté Serveur
+ */
+
+
+
+
+
+
+
+
+
+
+void *gereSpy(void *arg){ 
+  //Gere les deconnexion
+  //Gere les demande de co sur le controleur
+
+  int i, n, fdMax;
+  char buffer[10];
+  fd_set fd;
+  struct timeval tv;
+  tv.tv_sec=1;
+  tv.tv_usec = 0;
+  while(1){
+    FD_ZERO(&fd);
+    for (auto it=listespy.begin();it!=listespy.end();it++){
+      FD_SET(it->second.sock, &fd);
+    }
+    fdMax=0;
+
+    for (auto it=listespy.begin();it!=listespy.end();it++) 
+      if (it->second.sock>fdMax) fdMax=it->second.sock;
+    fdMax++;
+
+    //attente qu'un client envoie un message ou se déconnecte
+    
+    n=select(fdMax, &fd, NULL, NULL, &tv);
+
+    //Changement
+    if (n>0){
+      for (auto it=listespy.begin();it!=listespy.end();it++) {
+	if (FD_ISSET(it->second.sock, &fd)) {
+	  n=lireMessage(it->second.sock, buffer, 10);
+	  if (n==0) {//Deco Client
+	    close(it->second.sock);
+	    listespy.erase(it);
+	    cout<<"Client Sup !"<<endl;	        
+	  }
+	}
+      }
+    }
+
+  }
+}
+
+
+
+
+
+
+
+
+int main(int args, char *arg[]){
+  //CLIENT
+  //initialisation du Client
+  int sock=initSocketClient(arg[1], atoi(arg[2]));
+  if (sock==-1) return -1; //en cas d'echec de l'initialisation
+  connection(sock); 
+  write(sock, "GET",3);
+  cout<<"Envoie"<<endl;
+  getReponse(sock);
+  //Thread sur les gestion de conexion.
+
+
+  //SERVEUR
+  pthread_create(&T2, NULL, gereCon, NULL);
+  //attente de clients puis gestion des requêtes
+  while (1) {
+    type=-1;
+    client=accept(sock, (struct sockaddr *) &stclient, &taille);
+    struct hostent *h;
+    h=gethostbyaddr((void *)&stclient.sin_addr.s_addr, 4, AF_INET);
+    tmp=string(h->h_name);
+    cout<<"Un client vient de se connecter : "<<tmp<<" "<<tmp.substr(0,6)<<endl;
+  }
+
+
+  close(sock);
+  return 0;
+}
+  
