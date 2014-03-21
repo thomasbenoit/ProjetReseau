@@ -163,13 +163,14 @@ void* serv(void* arg){
     int client; //descripteur pour le client  
 
     client=accept(sock, (struct sockaddr *) &stclient, &taille);
-    cout<<"Un client vient de se connecter"<<endl;
+    cout<<"Un client vient de se connecter sock: "<<client<<endl;
 
     struct hostent *h;
     h=gethostbyaddr((void *)&stclient.sin_addr.s_addr, 4, AF_INET);
 
     string tmp=string(h->h_name);
-    tmp=tmp.substr(4,6);
+    tmp=tmp.substr(7,2);
+    cout<<tmp<<endl;
     //Traite le cas du local host
     if(strcmp(tmp.c_str(),"lh")){
       listespy.insert(pair<int,int>(atoi(tmp.c_str()),client));
@@ -192,13 +193,13 @@ int main(int args, char *arg[]){
   pthread_t T1,T2;
   pthread_mutex_t verr;
   string tmp;
-  sockserv=initSocketServeur(atoi("9091"));
+  sockserv=initSocketServeur(atoi(arg[3]));
   if (sockserv==-1) return -1; //en cas d'echec de l'initialisation
 
   cout<<"Pas de Crash"<<endl;
 
   pthread_create(&T2, NULL, serv, (void*)&sockserv);
-  //pthread_create(&T1, NULL, gereSpy, NULL);
+  pthread_create(&T1, NULL, gereSpy, NULL);
  
 
   bool quit=false;
@@ -209,10 +210,20 @@ int main(int args, char *arg[]){
       quit=true;
     }
     else if(!strcmp(s.c_str(),"GET")){
-      write(sock,"GET",3);
+      string test="GET";
+      test+=(string)(arg[3]);
+      write(sock,test.c_str(),7);
+      
     }
     else if(!strcmp(s.c_str(),"SCR")){
       cout<<"demande de screen (Pas encore implementé)"<<endl;
+    }
+    else if(!strcmp(s.c_str(),"SEN")){
+      for(auto it=listespy.begin();it!=listespy.end();it++){
+	cout<<"Socket: "<<it->second<<endl;
+	write(it->second,"r",1);
+      }
+      cout<<"Fin Transmision"<<endl;
     }
   }
   

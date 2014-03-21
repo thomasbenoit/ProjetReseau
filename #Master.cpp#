@@ -162,6 +162,7 @@ void *gereCon(void *arg){
 	      s+=" ";
 	      s+=it->second.nomhote;
 	      //On choisis la salle de la localisation ! ERREUR Il faut demander la salle à l'usr
+
 	      auto it2=listespy.find(it->first);//Il faudra le faire pour tous 
 	      write(it2->second.sock,s.c_str(),s.size());
 	      cout<<"Fin de demande"<<endl;
