@@ -156,21 +156,20 @@ int initSocketServeur(short port){
 
 void* serv(void* arg){
   while (1) {
-    cout<<"boucle"<<endl;
     int sock=*(int *)arg;
     struct sockaddr_in stclient; //ma structure d'adresse pour le client
     socklen_t taille=sizeof(struct sockaddr_in);
     int client; //descripteur pour le client  
 
     client=accept(sock, (struct sockaddr *) &stclient, &taille);
-    cout<<"Un client vient de se connecter sock: "<<client<<endl;
+    cout<<"Un client vient de se connecter sock: "<<endl;
 
     struct hostent *h;
     h=gethostbyaddr((void *)&stclient.sin_addr.s_addr, 4, AF_INET);
 
     string tmp=string(h->h_name);
     tmp=tmp.substr(7,2);
-    cout<<tmp<<endl;
+    //cout<<tmp<<endl;
     //Traite le cas du local host
     if(strcmp(tmp.c_str(),"lh")){
       listespy.insert(pair<int,int>(atoi(tmp.c_str()),client));
@@ -196,7 +195,6 @@ int main(int args, char *arg[]){
   sockserv=initSocketServeur(atoi(arg[3]));
   if (sockserv==-1) return -1; //en cas d'echec de l'initialisation
 
-  cout<<"Pas de Crash"<<endl;
 
   pthread_create(&T2, NULL, serv, (void*)&sockserv);
   pthread_create(&T1, NULL, gereSpy, NULL);
@@ -209,22 +207,60 @@ int main(int args, char *arg[]){
     if(!strcmp(s.c_str(),"STOP")){
       quit=true;
     }
-    else if(!strcmp(s.c_str(),"GET")){
+    else if(!strcmp(s.c_str(),"C")){//Connexion Controleur-Spy
       string test="GET";
-      test+=(string)(arg[3]);
-      write(sock,test.c_str(),7);
+      cout<<"NUM SALLE ?"<<endl;
+      cin >> s;
+      test+=s+(string)(arg[3]);
+      //  cout<<test<<endl;
+      write(sock,test.c_str(),test.size());
       
     }
-    else if(!strcmp(s.c_str(),"SCR")){
+    else if(!strcmp(s.c_str(),"P")){//Prendre les screens des Spy connecté
       cout<<"demande de screen (Pas encore implementé)"<<endl;
     }
-    else if(!strcmp(s.c_str(),"SEN")){
+    else if(!strcmp(s.c_str(),"TEST")){//Fonction de test BRODCAST r à tout les spy
       for(auto it=listespy.begin();it!=listespy.end();it++){
-	cout<<"Socket: "<<it->second<<endl;
+	//cout<<"Socket: "<<it->second<<endl;
 	write(it->second,"r",1);
       }
       cout<<"Fin Transmision"<<endl;
     }
+    else if(!strcmp(s.c_str(),"A")){//BUG NIVEAU BASH
+      for(auto it=listespy.begin();it!=listespy.end();it++){
+	write(it->second,"A",1);
+      }
+      while(strcmp(s.c_str(),"quit.")){
+	cout<<"Nom des programme ou quit"<<endl;
+	cin >> s;
+	s+=".";
+	for(auto it=listespy.begin();it!=listespy.end();it++){
+	  write(it->second,s.c_str(),s.size());
+	}
+      }
+    }
+    else if(!strcmp(s.c_str(),"M")){
+      cout<<"Message à envoyer ?"<<endl;
+      cin >> s;
+      s="M"+s+".";
+      cout<<s<<endl;
+      for(auto it=listespy.begin();it!=listespy.end();it++){
+	write(it->second,s.c_str(),s.size());
+      }
+    }
+    else if(!strcmp(s.c_str(),"O")){
+      cout<<"Ecrire votre Commande"<<endl;
+      cin >> s;
+      s="M"+s+".";
+      cout<<s<<endl;
+      for(auto it=listespy.begin();it!=listespy.end();it++){
+	write(it->second,s.c_str(),s.size());
+      }
+    }
+    else {
+      cout<<"Commande inconnu : "<<s<<endl;
+    }
+
   }
   
 

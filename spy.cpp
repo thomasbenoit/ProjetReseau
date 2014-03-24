@@ -10,6 +10,8 @@
 #include <fstream>
 #include <map>
 #include <iostream>
+#include <pthread.h>
+#include <signal.h>
 
 using namespace std;
 
@@ -52,6 +54,7 @@ void printEcran(int sock){//fonction impression d'écran toute les 60 secondes
   int time=60;
   while(1){
     system("import -window root /tmp/image_ecran.jpg");//impression écran
+    //Envoyer l'image ?
     sleep(time);
   }
 } 
@@ -64,15 +67,15 @@ void messageEtudiant(int sock, string message){//zenity avec le message recu
 
 
 void controle(int sock, string message){//permet de lancer la commande sur l'ordinateur
-  
   system(message.c_str());
 }
 
 
 
-void alerte(int sock){//permet de savoir si un programme de la liste est en fonction
- 
-  system("rm /tmp/res_cmd.txt");
+void * alerte(void* arg){//permet de savoir si un programme de la liste est en fonction
+  int sock=*(int *)arg;
+  string tmp;
+  system("rm /tmp/res_cmd.txt;touch /tmp/res_cmd.txt");
   const char * p1= "ps aux | grep -e ";
   const char * p2=" | grep -v color | wc -l >> /tmp/res_cmd.txt";
 
@@ -81,19 +84,25 @@ void alerte(int sock){//permet de savoir si un programme de la liste est en fonc
     const char * s=c.c_str();
     int rep=system(s);
   }
-  sleep(2);
-  ifstream fichier("/tmp/res_cmd.txt", ios::in);
-  if(fichier){
-    for(map<string,int>::iterator it (prog.begin());it!=prog.end();it++){
-      fichier>>prog[it->first];
+  while(1){
+    sleep(10);
+    ifstream fichier("/tmp/res_cmd.txt", ios::in);
+    if(fichier){
+      for(map<string,int>::iterator it (prog.begin());it!=prog.end();it++){
+	fichier>>prog[it->first];
+      }
+      fichier.close();
     }
-    fichier.close();
-  }
-  for(map<string,int>::iterator it (prog.begin());it!=prog.end();it++){
-    if(it->second>1){
-      cout<<it->first+" est lancé"<<endl;
-    }else{
-      cout<<it->first+" n'est pas lancé"<<endl;
+    for(map<string,int>::iterator it (prog.begin());it!=prog.end();it++){
+      if(it->second>1){
+	tmp=it->first+" est lancé";
+	write(sock,tmp.c_str(),tmp.size());
+	cout<<it->first+" est lancé"<<endl;
+      }else{
+	tmp=it->first+" n'est pas lancé";
+	write(sock,tmp.c_str(),tmp.size());
+	cout<<it->first+" n'est pas lancé"<<endl;
+      }
     }
   }
 }
@@ -112,6 +121,20 @@ int lireMessage(int client, char *buff, int max){
     return strlen(buff);
 }
 
+int lireProg(int client, char *buff, int max){
+    char c='a'; //c initialisé a n'importe quoi sauf \n
+    int i=0, n;
+    //lire la quantité demandée
+    while ((c!='.')&&(i<max)) {
+      n=read(client, &c, 1);
+      if (n==0) return 0;
+      if (c!='.') buff[i++]=c;
+    }
+    buff[i]=0;
+    return strlen(buff);
+}
+
+
 int getReponseMaster(int sock){
   char reponse[1000];
   int i;
@@ -124,10 +147,17 @@ int getReponseMaster(int sock){
 	cout<<"demande de connection"<<endl;
 	read(sock,reponse,1);
 	read(sock,port,4);
+	for(int cpt=0;cpt<4;cpt++){
+	  cout<<port[cpt]<<endl;
+	}
 	read(sock,reponse,1);
 	read(sock,host,33);
+	for(int cpt=0;cpt<33;cpt++){
+	  cout<<host[cpt]<<endl;
+	}
 	cout<<"connection"<<endl;
-	return initSocketClient(host,atoi(port));	
+	return initSocketClient(host,atoi(port));
+	cout<<"Fin"<<endl;
       }
       else{
 	cout<<"Erreur: "<<reponse[0]<<endl;
@@ -137,22 +167,37 @@ int getReponseMaster(int sock){
 
 }
 void getReponse(int sock){//fonction test pour savoir si la commande prec a fonctionné
-  cout<<"GETREPONSE"<<endl;
+  pthread_t T1;
   bool quit=false,continuer=true;
+  char rep[1];
   char reponse[1000];
   int i;
+  
+  pthread_create(&T1, NULL, alerte, (void*)&sock);
   while(!quit){
-    i=read(sock, reponse, 1);
+    cout<<"Read "<<endl;
+    i=read(sock, rep, 1);
+    cout<<(string)reponse<<endl;
     if(i>0){
-      if(!strcmp(reponse,"S")){//STOP
+      if(!strcmp(rep,"S")){//STOP
 	cout<<"Spy Stop"<<endl;
 	quit=true;
+	close(sock);
       }
-      else if(!strcmp(reponse,"A")){
+      else if(!strcmp(rep,"A")){//Lis un nom de programme
+	continuer=true;
+	/* Protocol :
+	 * A
+	 * firefox
+	 * ...
+	 * quit
+	 */
+
 	while(continuer){
-	  i=read(sock, reponse, 15);
+	  i=lireProg(sock,reponse,100);
 	  if(i>0){
-	    if(strcmp(reponse, "quit")){
+	    cout<<"Rep: "<<(string)reponse<<endl;
+	    if(!strcmp(reponse, "quit")){
 	      continuer=false;
 	    }
 	    else{
@@ -160,28 +205,29 @@ void getReponse(int sock){//fonction test pour savoir si la commande prec a fonc
 	    }
 	  }
 	}
-	alerte(sock);
       }
-      else if(!strcmp(reponse,"M")){
-	i=read(sock,reponse,30);
+      else if(!strcmp(rep,"M")){
+	i=lireProg(sock,reponse,100);
 	if(i>0){
 	  messageEtudiant(sock,reponse);
 	}
       }
-      else if(!strcmp(reponse, "O")){
-	i=read(sock, reponse, 30);
+      else if(!strcmp(rep, "O")){
+	i=lireProg(sock, reponse, 100);
 	if(i>0){
 	  controle(sock,reponse);
 	}
       }
-      else if(!strcmp(reponse,"P")){
+      else if(!strcmp(rep,"P")){
 	printEcran(sock);
       }
       else{
 	cout<<"Erreur: "<<reponse[0]<<endl;
       }
     }
+
   }
+  pthread_kill(T1,SIGUSR1);
 }
 
 
@@ -191,10 +237,13 @@ int main(int args, char *arg[]){
 
   //initialisation du serveur
   int sock=initSocketClient(arg[1], atoi(arg[2]));
+  int sockcontroleur;
   if (sock==-1) return -1; //en cas d'echec de l'initialisation
   connection(sock); 
-  int sockcontroleur=getReponseMaster(sock);
-  getReponse(sockcontroleur);
+  while(1){
+    sockcontroleur=getReponseMaster(sock);
+    getReponse(sockcontroleur);
+  }
   close(sock);
   return 0;
 }

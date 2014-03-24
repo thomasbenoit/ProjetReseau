@@ -121,6 +121,7 @@ void *gereCon(void *arg){
   //Gere les demande de co sur le controleur
 
   int i, n, fdMax;
+  char numsalle[2];
   char buffer[3];
   fd_set fd;
   string s="";
@@ -154,16 +155,23 @@ void *gereCon(void *arg){
 	  }
 	  else {
 	    if(!strcmp(buffer,"GET")){
+	      read(it->second.sock,numsalle,2);
 	      cout<<"Envoie demande de connexion"<<endl;
 	      s="C ";
 	      char port[4];
 	      read(it->second.sock,port,4);
 	      s+=(string)(port);
+	      cout<<s<<endl;
+	      cout<<"port: "<<s<<endl;
 	      s+=" ";
 	      s+=it->second.nomhote;
-	      //On choisis la salle de la localisation ! ERREUR Il faut demander la salle à l'usr
-	      auto it2=listespy.find(it->first);//Il faudra le faire pour tous 
-	      write(it2->second.sock,s.c_str(),s.size());
+	      cout<<s<<endl;
+	      //On choisis la salle de la localisation ! ERREUR Il faut demander la salle à l'usr	      
+	      for(auto it2=listespy.begin();it2!=listespy.end();it2++){
+		if(it2->first=="info"+(string)(numsalle)){
+		  write(it2->second.sock,s.c_str(),s.size());
+		}
+	      }
 	      cout<<"Fin de demande"<<endl;
 	    }
 	  }

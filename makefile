@@ -9,6 +9,8 @@ spy: spy.cpp
 controleur: Controleur.cpp
 	$(CC) -o Controleur Controleur.cpp
 
+observateur: Observateur.cpp
+	$(CC) -o Observateur Observateur.cpp
 
 clean :
 	rm -rf *.o main
