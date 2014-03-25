@@ -251,7 +251,7 @@ int main(int args, char *arg[]){
     else if(!strcmp(s.c_str(),"O")){
       cout<<"Ecrire votre Commande"<<endl;
       cin >> s;
-      s="M"+s+".";
+      s="O"+s+".";
       cout<<s<<endl;
       for(auto it=listespy.begin();it!=listespy.end();it++){
 	write(it->second,s.c_str(),s.size());

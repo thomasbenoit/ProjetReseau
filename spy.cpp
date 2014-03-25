@@ -75,35 +75,38 @@ void controle(int sock, string message){//permet de lancer la commande sur l'ord
 void * alerte(void* arg){//permet de savoir si un programme de la liste est en fonction
   int sock=*(int *)arg;
   string tmp;
-  system("rm /tmp/res_cmd.txt;touch /tmp/res_cmd.txt");
-  const char * p1= "ps aux | grep -e ";
-  const char * p2=" | grep -v color | wc -l >> /tmp/res_cmd.txt";
+  
 
-  for(map<string,int>::iterator it(prog.begin());it!=prog.end();it++){
-    string c=p1+it->first+p2;
-    const char * s=c.c_str();
-    int rep=system(s);
-  }
-  while(1){
-    sleep(10);
-    ifstream fichier("/tmp/res_cmd.txt", ios::in);
-    if(fichier){
+    const char * p1= "ps aux | grep -e ";
+    const char * p2=" | grep -v color | wc -l >> /tmp/res_cmd.txt";
+
+    while(1){
+      system("rm /tmp/res_cmd.txt 2>/dev/null;touch /tmp/res_cmd.txt");
+      for(map<string,int>::iterator it(prog.begin());it!=prog.end();it++){
+	string c=p1+it->first+p2;
+	const char * s=c.c_str();
+	int rep=system(s);
+      }
+ 
+      sleep(10);
+      ifstream fichier("/tmp/res_cmd.txt", ios::in);
+      if(fichier){
+	for(map<string,int>::iterator it (prog.begin());it!=prog.end();it++){
+	  fichier>>prog[it->first];
+	}
+	fichier.close();
+      }
       for(map<string,int>::iterator it (prog.begin());it!=prog.end();it++){
-	fichier>>prog[it->first];
+	if(it->second>1){
+	  tmp=it->first+" est lancé";
+	  write(sock,tmp.c_str(),tmp.size());
+	  cout<<tmp<<endl;
+	}else{
+	  tmp=it->first+" n'est pas lancé";
+	  write(sock,tmp.c_str(),tmp.size());
+	  cout<<tmp<<endl;
+	}
       }
-      fichier.close();
-    }
-    for(map<string,int>::iterator it (prog.begin());it!=prog.end();it++){
-      if(it->second>1){
-	tmp=it->first+" est lancé";
-	write(sock,tmp.c_str(),tmp.size());
-	cout<<it->first+" est lancé"<<endl;
-      }else{
-	tmp=it->first+" n'est pas lancé";
-	write(sock,tmp.c_str(),tmp.size());
-	cout<<it->first+" n'est pas lancé"<<endl;
-      }
-    }
   }
 }
 
@@ -215,7 +218,7 @@ void getReponse(int sock){//fonction test pour savoir si la commande prec a fonc
       else if(!strcmp(rep, "O")){
 	i=lireProg(sock, reponse, 100);
 	if(i>0){
-	  controle(sock,reponse);
+	  controle(sock,(string)reponse);
 	}
       }
       else if(!strcmp(rep,"P")){
